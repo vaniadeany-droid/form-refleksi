@@ -54,7 +54,7 @@ function render() {
     <h3>${n}. ${text}</h3>
     <div class="rec"><button type="button" class="b-rec">🎤 Rekam jawaban</button><span class="timer">0:00 / 5:00</span></div>
     <audio controls hidden></audio>
-    <details><summary>Atau ketik jawaban</summary><textarea rows="4"></textarea></details>
+    <details><summary>Ketik jawaban (bisa bersama rekaman, atau sebagai pengganti)</summary><textarea rows="4"></textarea></details>
   </section>`;
 
   html += audioCard(AUDIO_QS[0]) + audioCard(AUDIO_QS[1]);
@@ -119,12 +119,19 @@ const toBase64 = blob => new Promise(res => {
 });
 
 async function post(payload) {
+  if (!/^https:\/\/script\.google\.com\/.+\/exec$/.test(API_URL)) {
+    throw new Error('URL Apps Script belum diisi dengan benar di script.js (harus berakhiran /exec)');
+  }
   const r = await fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' }, // menghindari masalah CORS di Apps Script
     body: JSON.stringify(payload)
   });
-  const j = await r.json();
+  const text = await r.text();
+  let j;
+  try { j = JSON.parse(text); } catch (e) {
+    throw new Error('Server tidak membalas dengan benar (status ' + r.status + '). Cek deployment Apps Script: akses harus "Anyone" dan sudah New version');
+  }
   if (!j.ok) throw new Error(j.error || 'Gagal menyimpan');
   return j;
 }
