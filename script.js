@@ -1,5 +1,5 @@
 // 1) Tempel URL Apps Script (yang berakhiran /exec) di sini:
-const API_URL = 'PASTE_URL_APPS_SCRIPT_DI_SINI';
+const API_URL = 'https://script.google.com/macros/s/AKfycbxobWYr2uP6Zof2KcX7X4uV6epiDSJdRNF5ew_rvloj6BSp5yguDwnKwSHw6s6hqXo/exec';
 const MAX_SEC = 300; // 5 menit
 
 const DIVISI = ['IT Support', 'QA Engineer', 'Business Growth', 'Product Technical Writer', 'HRGA'];
