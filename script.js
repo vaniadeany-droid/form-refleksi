@@ -1,5 +1,5 @@
 // 1) Tempel URL Apps Script (yang berakhiran /exec) di sini:
-const API_URL = 'https://script.google.com/macros/s/AKfycbwU7qNz8QZDJQqCdfp38D395WYhQNscPGZxpyfdtN3qs_keSFWoUcwNGNOZT_3mG6g/exec';
+const API_URL = 'https://script.google.com/macros/s/AKfycbwgYoTs1uzuX9LEW-yErk9Mzb5fGWwSvIqDM57nJcxcGTtLifeUq7cFcshUwdpNXeU/exec';
 const MAX_SEC = 300; // 5 menit
 
 const DIVISI = ['IT Support', 'QA Engineer', 'Business Growth', 'Product Technical Writer', 'HRGA'];
@@ -32,6 +32,15 @@ const Q11_OPTS = [
   'Menyusun guideline, SOP, atau laporan terstruktur.',
   'Mencari akar masalah dari sebuah error/kegagalan.'
 ];
+const Q12 = 'Apakah Anda berminat untuk melanjutkan kerja sama dengan perusahaan setelah masa kontrak saat ini berakhir?';
+const Q12_OPTS = [
+  'Ya, saya berminat melanjutkan di posisi saya saat ini.',
+  'Ya, saya berminat, namun saya ingin mengeksplorasi posisi/peran lain.',
+  'Tidak, saya berencana untuk tidak melanjutkan masa kontrak.'
+];
+const Q13 = 'Posisi atau departemen apa yang ingin Anda eksplorasi ke depannya, dan apa alasannya?';
+const Q14 = 'Terkait kelanjutan kerja sama ini, skema kepegawaian seperti apa yang paling Anda harapkan ke depannya?';
+const Q14_OPTS = ['Perpanjangan Kontrak (Full-time)', 'Freelance / Project-based', 'Part-time'];
 
 const $ = (s, p = document) => p.querySelector(s);
 const $$ = (s, p = document) => [...p.querySelectorAll(s)];
@@ -64,11 +73,19 @@ function render() {
   html += AUDIO_QS.slice(2).map(audioCard).join('');
   html += `<section class="card"><h3>10. ${Q10}</h3>${choices('radio', 'q10', Q10_OPTS)}</section>`;
   html += `<section class="card"><h3>11. ${Q11}</h3>${choices('checkbox', 'q11', Q11_OPTS)}</section>`;
+  html += `<section class="card"><h3>12. ${Q12}</h3>${choices('radio', 'q12', Q12_OPTS)}</section>`;
+  html += audioCard([13, Q13]).replace('<section class="card"', '<section class="card" id="sec13" hidden');
+  html += `<section class="card" id="sec14"><h3>14. ${Q14}</h3>${choices('radio', 'q14', Q14_OPTS)}</section>`;
   $('#form').innerHTML = html;
 
   $$('.card[data-q]').forEach(setupRecorder);
   $$('input[name=q11]').forEach(c => c.onchange = () => {
     if ($$('input[name=q11]:checked').length > 3) { c.checked = false; alert('Pilih maksimal 3 aktivitas.'); }
+  });
+  // Q13 hanya untuk pilihan 2; Q14 disembunyikan untuk pilihan 3 (langsung ke kirim)
+  $$('input[name=q12]').forEach(r => r.onchange = () => {
+    $('#sec13').hidden = r.value !== Q12_OPTS[1];
+    $('#sec14').hidden = r.value === Q12_OPTS[2];
   });
 }
 
@@ -151,12 +168,21 @@ async function submit() {
   if (!q3) return setStatus('Pertanyaan 3 belum dijawab.', true);
   if (!q10) return setStatus('Pertanyaan 10 belum dijawab.', true);
   if (!q11.length) return setStatus('Pertanyaan 11 belum dijawab.', true);
+  const q12 = ($('input[name=q12]:checked') || {}).value;
+  if (!q12) return setStatus('Pertanyaan 12 belum dijawab.', true);
+  const needQ13 = q12 === Q12_OPTS[1], needQ14 = q12 !== Q12_OPTS[2];
+  if (needQ13) {
+    teks[13] = $('.card[data-q="13"] textarea').value.trim();
+    if (!recordings[13] && !teks[13]) return setStatus('Pertanyaan 13 belum dijawab (rekam atau ketik).', true);
+  }
+  const q14 = needQ14 ? (($('input[name=q14]:checked') || {}).value || '') : '';
+  if (needQ14 && !q14) return setStatus('Pertanyaan 14 belum dijawab.', true);
 
   $('#submit').disabled = true;
   const id = Date.now().toString(36);
   const audio = {};
   try {
-    const keys = Object.keys(recordings);
+    const keys = Object.keys(recordings).filter(k => k !== '13' || needQ13);
     for (let i = 0; i < keys.length; i++) {
       setStatus(`Mengunggah rekaman ${i + 1} dari ${keys.length}… jangan tutup halaman ini.`);
       const { blob, mime } = recordings[keys[i]];
@@ -167,7 +193,7 @@ async function submit() {
       audio[keys[i]] = res.url;
     }
     setStatus('Menyimpan jawaban…');
-    await post({ action: 'submit', id, nama, divisi, dept, teks, audio, q3, q10, q11 });
+    await post({ action: 'submit', id, nama, divisi, dept, teks, audio, q3, q10, q11, q12, q14 });
     $('main').innerHTML = '<h1>Terima kasih!</h1><p class="intro">Jawaban Anda sudah terkirim. Halaman ini boleh ditutup.</p>';
   } catch (e) {
     setStatus('Gagal mengirim: ' + e.message + '. Periksa koneksi lalu coba lagi.', true);
